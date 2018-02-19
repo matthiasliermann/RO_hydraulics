@@ -57,7 +57,6 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
   end RO;
 
   model RO_middle "middle element of RO membrane"
-  protected
     parameter Modelica.SIunits.MolarMass M_Na = 22.9898e-3 "Molar mass of sodium [kg/mol]";
     parameter Modelica.SIunits.MolarMass M_Cl = 35.4527e-3 "Molar mass of chlorine [kg/mol]";
     parameter Modelica.SIunits.MolarMass M_s = M_Na + M_Cl "Molar mass of sodium chloride [kg/mol]";
@@ -66,54 +65,49 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
     parameter Modelica.SIunits.Temperature T = 273 + 25;
     parameter Modelica.SIunits.MolarHeatCapacity gamma = 8.3086 "Molar gas constant R [J/mol.K]";
     // RO module specific parameters
-  public
     parameter Real k_f = 9.6 "friction factor, find experimentally";
     parameter Modelica.SIunits.Height h_b = 0.7e-3 "height of...";
     parameter Modelica.SIunits.Length dx = 0.88 / 5 "Length of element";
-    parameter Modelica.SIunits.Length W = 1.43 "width of partial element";
+    parameter Modelica.SIunits.Length W = 1.43 "width of element";
     parameter Integer n_leaves = 3 "number of leaves";
     parameter Modelica.SIunits.Length L_mix = 0.006 "characteristic length of mixing net (spacer)";
     parameter Real K = 0.5 "mixing coefficient of net";
-    parameter Real A_w(unit="m/(Pa.s)") = 2.08e-12 "RO membrange solvent permeability coefficient";
-    Real B_s(unit="m/s") = 1.11e-7 "permeability coefficient of solute across membrane";
+    parameter Real A_w(unit="m/(Pa.s)") = 2.08e-12;
+    Real B_s(unit="m/s") = 1.11e-7;
 
-    Modelica.SIunits.MolarDensity c_fin "feed inlet molar salt concentration";
-    Modelica.SIunits.Pressure p_fin "feed inlet pressure";
-    Modelica.SIunits.VolumeFlowRate Q_fin "feed inlet volume flowrate";
-    Modelica.SIunits.Density rho_fin "feed inlet density";
-    Modelica.SIunits.DynamicViscosity mu_fin "feed inlet dynamic viscosity";
-
-    Modelica.SIunits.Pressure p_fout "feed outlet pressure";
-    Modelica.SIunits.MolarDensity c_fout "feed outlet molar salt concentration";
-    Modelica.SIunits.VolumeFlowRate Q_fout "feed outlet volume flowrate";
-    Modelica.SIunits.Density rho_fout "feed outlet density";
-
-    Modelica.SIunits.MolarDensity c_pin "permeate inlet molar salt concentration";
-    Modelica.SIunits.Pressure p_pin "permeate inlet pressure";
-    Modelica.SIunits.VolumeFlowRate Q_pin "permeate inlet volume flowrate";
-    Modelica.SIunits.Density rho_pin "permeate inlet density";
-
-    Modelica.SIunits.MolarDensity c_pout "permeate outlet molar salt concentration";
-    Modelica.SIunits.Pressure p_pout "permeate outlet pressure";
-    Modelica.SIunits.VolumeFlowRate Q_pout "permeate outlet volume flow rate";
-    Modelica.SIunits.Density rho_pout "permeate outlet density";
-
-    Modelica.SIunits.MolarDensity c_m "molar concentration at the wall of RO membrane";
-    Real J_v(unit="m/s") "Solvent (water) flux in m3/m2.s";
-    Real J_v1(unit="mol/(m2.s)") "Solvent (water) flux in mol/(m2.s)";
-    Real J_s(unit="mol/(m2.s)") "Solute (salt) flux in mol/(m2.s)";
-    Modelica.SIunits.Velocity U_b "bulk (or feed) velocity";
-    Real Sc "Schimdt dimensionless number";
-    Real Pe "Peclet dimensionless number L-U/D";
-    Real k "mass transfer coefficient (dependent on membrane property and also function of flow conditions on the feed side)";
-    Modelica.SIunits.Length D_h "hydraulic diameter, used in calculation of pressure drop";
-    Real k_fb "???";
-    Modelica.SIunits.Pressure delta_p "Feed pressure drop";
-    Modelica.SIunits.Area A_dx "Area of partial element";
-    Real error_Jv "relative error of solvent flux. This is for checking if assumption of Eq. 6 is valid";
-    Modelica.SIunits.MolarDensity error_cp "error molar permeate concentration ???";
-    Real osmosis(unit="m/s") "osmotic solvent (water) flux in m3/m2.s";
-    Real rosmosis(unit="m/s") "reverse osmotic solvent (water) flux in m3/m2.s";
+  Real c_fin(unit="mol/m3"),
+       p_fin(unit="bar"),
+       Q_fin(unit="m3/s"),
+       rho_fin(unit="kg/m3"),
+       mu_fin(unit="kg/(m.s)"),
+       p_fout(unit="bar"),
+       c_fout(unit="mol/m3"),
+       Q_fout(unit="m3/s"),
+       rho_fout(unit="kg/m3"),
+       c_pin(unit="mol/m3"),
+       p_pin(unit="bar"),
+       Q_pin(unit="m3/s"),
+       rho_pin(unit="kg/m3"),
+       c_pout(unit="mol/m3"),
+       p_pout(unit="bar"),
+       Q_pout(unit="m3/s"),
+       rho_pout(unit="kg/m3"),
+       c_m(unit="mol/m3"),
+       J_v(unit="m/s"),
+       J_v1(unit="mol/(m2.s)"),
+       J_s(unit="mol/(m2.s)"),
+       U_b(unit="m/s"),
+       Sc,
+       Pe,
+       k,
+       D_h(unit="m"),
+       k_fb,
+       delta_p(unit="bar"),
+       A_dx(unit="m2"),
+       error_Jv,
+       error_cp,
+       osmosis,
+       rosmosis;
 
     Port_f pin_n annotation(Placement(visible = true, transformation(origin={-100,0},    extent = {{-10, -10}, {10, 10}}, rotation = 0), iconTransformation(origin={-100,0},    extent = {{-10, -10}, {10, 10}}, rotation = 0)));
     Port_f pin_n1 annotation(Placement(visible = true, transformation(origin={0,100},       extent = {{-10, -10}, {10, 10}}, rotation = 0), iconTransformation(origin={0,100},     extent = {{-10, -10}, {10, 10}}, rotation = 0)));
@@ -146,7 +140,7 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
     A_dx = dx * W;
   //mass transfer coefficient
     Sc = mu_fin / (D * rho_fin);
-    U_b = (Q_fin / (2 * h_b * W)); // factor 2 for the fact that 2RO membranes speeze the permeate collecting material per leaf
+    U_b = (Q_fin / (2 * h_b * W));
   //bulk (or feed) velocity
     Pe = 2 * h_b * U_b / D;
   //Peclet dimensionless number
@@ -568,6 +562,8 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
   end Port_f;
 
   model RO_array_test
+    annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
+          coordinateSystem(preserveAspectRatio=false)));
 
     parameter Integer n=2 "number of modules";
     RO_middle module[n]
@@ -575,8 +571,8 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
     extent={{-10,-10},{10,10}},
     origin={-30,20})));
 
-    annotation (Icon(coordinateSystem(preserveAspectRatio=false)), Diagram(
-          coordinateSystem(preserveAspectRatio=false)));
+  equation
+
   end RO_array_test;
   annotation (uses(
       OpenHydraulics(version="1.0"),
