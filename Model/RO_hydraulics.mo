@@ -448,6 +448,7 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
   end RO_array_test;
 
   model RO_middle_stream "middle element of RO membrane with stream connectors"
+    extends PartialFourPort;
   protected
     type MolarFlux = Real(final quantity = "MolarFlux", final unit = "mol/(m2.s)");
     type VolumetricFlux = Real(final quantity = "VolumetricFlux", final unit = "m3/(m2.s)");
@@ -475,18 +476,15 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
     Modelica.SIunits.Density rho_fin "feed inlet density";
     Modelica.SIunits.DynamicViscosity mu_fin "feed inlet dynamic viscosity";
     Modelica.SIunits.Pressure p_fout "feed outlet pressure";
-    Modelica.SIunits.MolarDensity c_fout "feed outlet molar salt concentration";
     Modelica.SIunits.VolumeFlowRate Q_fout "feed outlet volume flow rate";
     Modelica.SIunits.Density rho_fout "feed outlet density";
     Modelica.SIunits.MolarDensity c_pin "permeate inlet molar salt concentration";
     Modelica.SIunits.Pressure p_pin "permeate inlet pressure";
     Modelica.SIunits.VolumeFlowRate Q_pin "permeate inlet volume flow rate";
     Modelica.SIunits.Density rho_pin "permeate inlet density";
-    Modelica.SIunits.MolarDensity c_pout "pearmeate outlet molar salt concentration";
     Modelica.SIunits.Pressure p_pout "permeate outlet pressure";
     Modelica.SIunits.VolumeFlowRate Q_pout "permeate outlet volume flow rate";
     Modelica.SIunits.Density rho_pout "permeate outlet density";
-    Modelica.SIunits.MolarDensity c_m "molar salt concentration on wall of RO membrane";
     VolumetricFlux J_v "Molar solvent (water) flux through membrane in [m3/(m2.s)]";
     MolarFlux J_v1 "Volumetric solvent (water) flux through membrane in [mol/(m2.s)]";
     MolarFlux J_s "Molar salt flux through membrane [mol/(m2.s)]";
@@ -496,46 +494,56 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
     Real k "Mass transfer coefficient, dependent on membrane properties and flow conditions of feed side";
     Modelica.SIunits.Length D_h "Hydraulic diameter of gap on feed side";
     Real k_fb "Loss factor for laminar turbulent flow in feed channel";
-    Modelica.SIunits.Pressure delta_p "Pressure loss in feed channel";
     Modelica.SIunits.Area A_dx "Area of finite element of RO module";
     Real error_Jv "Relative error of solvent flux to check if applied assumptions are fine";
     Modelica.SIunits.MolarDensity error_cp "error of molar permeate salt concentration";
     VolumetricFlux osmosis "osmotic flux. Given the concentration difference at feed wall and permeate, this is how much is going through the membrane in osmotic direction";
     VolumetricFlux rosmosis "reverse osmotic flux. Given the pressure on feed and permeate sides, this is how much is going throught the membrane in reverse osmotic direction";
-    Port_f port_fin "feed inlet port" annotation (
-      Placement(visible = true, transformation(origin = {-100, 0}, extent = {{-10, -10}, {10, 10}}, rotation = 0), iconTransformation(origin = {-100, 0}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
-    Port_f port_pin "permeate inlet port" annotation (
-      Placement(visible = true, transformation(origin = {0, 100}, extent = {{-10, -10}, {10, 10}}, rotation = 0), iconTransformation(origin = {0, 100}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
-    Port_f port_fout "feed outlet port" annotation (
-      Placement(visible = true, transformation(origin = {0, -100}, extent = {{-10, -10}, {10, 10}}, rotation = 0), iconTransformation(origin = {0, -100}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
-    Port_f port_pout "permeate outlet port" annotation (
-      Placement(visible = true, transformation(origin = {98, 0}, extent = {{-10, -10}, {10, 10}}, rotation = 0), iconTransformation(origin = {98, 0}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+
+    Modelica.SIunits.Pressure dp_membrane "pressure difference across membrane";
+    Modelica.SIunits.Pressure dp_osmotic "osmotic pressure across membrane";
+    Modelica.SIunits.MolarDensity cp "Molar concentration of salt in permeate outlet";
+    Modelica.SIunits.MolarDensity cf "Molar concentration of salt feed outlet";
+    Modelica.SIunits.MolarDensity cm "Molar concentration of salt on membrane wall of feed side due to concentration polarization";
+
   equation
-    port_fin.p = p_fin;
-    port_fin.Q = Q_fin;
-    port_fin.c = c_fin;
-    port_pin.p = p_pin;
-    port_pin.Q = Q_pin;
-    port_pin.c = c_pin;
-    port_fout.p = p_fout;
-    port_fout.Q = -Q_fout;
-    //-ve
-    port_fout.c = c_fout;
-    port_pout.p = p_pout;
-    port_pout.Q = -Q_pout;
-    //-ve
-    port_pout.c = c_pout;
-    //state variables correlations (density, viscosity; SI)
+    port_feed_a.p = p_fin;
+    port_feed_a.m_flow = Q_fin*rho_fin;
+    port_feed_a.c = if port_feed_a.m_flow > 0 then inStream(port_feed_a.c) else cf;
+
+    port_feed_b.p = p_fout;
+    port_feed_b.m_flow = -Q_fout*rho_fout;
+    port_feed_b.c = if port_feed_b.m_flow < 0 then inStream(port_feed_b.c) else cf;
+
+    c_fin = if port_feed_a.m_flow > 0 then port_feed_a.c else port_feed_b.c;
+
+    dp_membrane = p_fin - p_pout;
+
+    port_permeate_a.p = p_pin;
+    port_permeate_a.m_flow = Q_pin*rho_pin;
+    port_permeate_a.c = if port_permeate_a.m_flow > 0 then inStream(port_permeate_a.c) else cp;
+
+    port_permeate_b.p = p_pout;
+    port_permeate_b.m_flow = -Q_pout*rho_pout;
+    port_permeate_b.c = if port_permeate_b.m_flow < 0 then inStream(port_permeate_b.c) else cp;
+
+    c_pin = if port_permeate_a.m_flow > 0 then port_permeate_a.c else port_permeate_b.c;
+
     rho_fin = 0.037 * c_fin + 1000.3;
+
+    //state variables correlations (density, viscosity; SI)
     rho_pin = 0.037 * c_pin + 1000.3;
     mu_fin = 9 * 10 ^ (-4);
+
     //(4.284*10^(-5)+1/(1.57*10^(-1)*(T-273.15+6.5*10^(1))^2-9.13*10^(1)))*(1+(1.54+1.998*10^(-2)*(T-273)-9.52*10^(-5)*(T-273)^2)*(c_fin*M_s/rho_fin)+(7.974-7.56*10^(-2)*(T-273)+4.724*10^(-4)*(T-273)^2)*(c_fin*M_s/rho_fin)^2);
-    rho_fout = 0.037 * c_fout + 1000.3;
-    rho_pout = 0.037 * c_pout + 1000.3;
+    rho_fout = 0.037 * cf + 1000.3;
+    rho_pout = 0.037 * cp + 1000.3;
     A_dx = dx * W;
+
     //mass transfer coefficient
     Sc = mu_fin / (D * rho_fin);
     U_b = Q_fin / (2 * h_b * W);
+
     //bulk (or feed) velocity
     Pe = 2 * h_b * U_b / D;
     //Peclet dimensionless number
@@ -544,49 +552,53 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
     //k = 0.753 * (K / (2 - K)) ^ 0.5 * (D / h_b) * Sc ^ (-1 / 6) *  Modelica.Fluid.Utilities.regRoot(Pe * h_b / L_mix,0.1);
     //m/s
     // solution
+
     //RO equations
-    J_v = A_w * (p_fin - p_pout - gamma * T * (c_m - c_pout));
-    error_Jv = (A_w * (p_fin - p_pout - gamma * T * c_m) - J_v) / J_v;
-    osmosis = A_w * gamma * T * (c_m - c_pout);
-    rosmosis = A_w * (p_fin - p_pout);
+    J_v = A_w * (dp_membrane - gamma * T * (cm - cp));
+    error_Jv = (A_w * (dp_membrane - gamma * T * cm) - J_v) / J_v;
+    dp_osmotic = gamma * T * (cm - cp);
+    osmosis = A_w * dp_osmotic;
+    rosmosis = A_w * dp_membrane;
     //m3/m2-s
     J_v1 = J_v * rho_fin / M_w;
     //mol/m2-s
-    J_s = B_s * (c_m - c_pout);
+    J_s = B_s * (cm - cp);
     //mol/m2-s
-    c_m = c_pout + (c_fin - c_pout) * exp(J_v / k);
-    error_cp = c_m - (c_pout + (c_fin - c_pout) * exp(J_v / k));
+
+    // flow across membrane
+    m_flow_membrane = n_leaves*2*A_dx*(J_v1*M_w+J_s*M_s);
+
+    cm = cp + (c_fin - cp) * exp(J_v / k);
+    error_cp = cm - (cp + (c_fin - cp) * exp(J_v / k));
     //mol/m3
-    //mass balance on permeate side
-    Q_pout * rho_pout = Q_pin * rho_pin + n_leaves * 2 * A_dx * (J_v1 * M_w + J_s * M_s);
-    //solution balance
-    Q_pout * c_pout = Q_pin * c_pin + n_leaves * 2 * A_dx * J_s;
-    //salt balance
-    //mass balance on feed side
-    Q_fout * rho_fout = Q_fin * rho_fin - n_leaves * 2 * A_dx * (J_v1 * M_w + J_s * M_s);
-    //solution balance
-    Q_fout * c_fout = Q_fin * c_fin - n_leaves * 2 * A_dx * J_s;
-    //salt balance
+
+    //salt balance on permeate side
+    Q_pout*cp = Q_pin*c_pin + n_leaves*2*A_dx*J_s;
+
+    //salt balance on feed side
+    Q_fout*cf = Q_fin*c_fin - n_leaves*2*A_dx*J_s;
+
     // finding new p_f
     D_h = 2 * h_b;
     //hydrulic diameter
     //Re = rho_fin * abs(U_b) * D_h / mu_fin;
     //f = k_f * (abs(Re))^(-0.5);
-    //delta_p = 2 * f * dx * U_b ^ 2 * rho_fin / D_h / 1e5;
+    //dp_feed = 2 * f * dx * U_b ^ 2 * rho_fin / D_h / 1e5;
     k_fb = 18.3673e8;
-    delta_p = k_fb * mu_fin * abs(U_b) ^ 1.2;
+    dp_feed = k_fb * mu_fin * abs(U_b) ^ 1.2;
     //bar
-    if p_fin - delta_p > 0 then
-      p_fout = p_fin - delta_p;
-    else
-      p_fout = 0;
-    end if;
-    p_pout = p_pin;
-    //-delta_p*(Q_pout/Q_fout)^2;
+    dp_permeate = 0;
+    //-dp_feed*(Q_pout/Q_fout)^2;
     //Power=Q_fin*p_fin/Q_pout /(36); //kWh/m3 of desalted water
     annotation (
       conversion(noneFromVersion = ""),
-      Diagram(graphics = {Polygon(points = {{-100, 100}, {100, 100}, {100, -100}, {-100, 100}}, lineColor = {0, 0, 255}, lineThickness = 0.5, fillColor = {0, 0, 255}, fillPattern = FillPattern.Solid), Text(extent = {{-38, 84}, {108, 0}}, lineColor = {255, 255, 255}, lineThickness = 0.5, fillColor = {0, 0, 255}, fillPattern = FillPattern.Solid, fontSize = 72, textString = "Permeate"), Text(extent = {{-102, 4}, {4, -66}}, lineColor = {0, 0, 255}, lineThickness = 0.5, fillColor = {0, 0, 255}, fillPattern = FillPattern.Solid, textString = "Feed", fontSize = 72), Line(points = {{-100, 100}, {-100, -100}, {100, -100}, {100, 100}, {-100, 100}}, color = {0, 0, 0}, thickness = 0.5)}),
+      Diagram(graphics={  Polygon(points = {{-100, 100}, {100, 100}, {100, -100}, {-100, 100}}, lineColor = {0, 0, 255},
+              lineThickness =                                                                                                            0.5, fillColor = {0, 0, 255},
+              fillPattern =                                                                                                                                                          FillPattern.Solid), Text(extent = {{-38, 84}, {108, 0}}, lineColor = {255, 255, 255},
+              lineThickness =                                                                                                                                                                                                        0.5, fillColor = {0, 0, 255},
+              fillPattern =                                                                                                                                                                                                        FillPattern.Solid, fontSize = 72, textString = "Permeate"), Text(extent = {{-102, 4}, {4, -66}}, lineColor = {0, 0, 255},
+              lineThickness =                                                                                                                                                                                                        0.5, fillColor = {0, 0, 255},
+              fillPattern =                                                                                                                                                                                                        FillPattern.Solid, textString = "Feed", fontSize = 72), Line(points = {{-100, 100}, {-100, -100}, {100, -100}, {100, 100}, {-100, 100}}, color = {0, 0, 0}, thickness = 0.5)}),
       Icon(graphics={  Polygon(points = {{-100, 100}, {100, 100}, {100, -100}, {-100, 100}}, lineColor = {0, 0, 255},
               lineThickness =                                                                                                         0.5, fillColor = {0, 0, 255},
               fillPattern =                                                                                                                                                       FillPattern.Solid), Text(extent = {{-102, 4}, {4, -66}}, lineColor = {0, 0, 255},
@@ -614,7 +626,9 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
       Icon(coordinateSystem(initialScale = 0.1), graphics={  Rectangle(lineColor = {0, 0, 255}, fillColor = {85, 0, 255},
               fillPattern =                                                                                                             FillPattern.Solid, extent = {{-100, 100}, {100, -100}})}),
       Diagram(coordinateSystem(preserveAspectRatio = true, extent = {{-100, -100}, {100, 100}}), graphics={  Rectangle(extent = {{-40, 40}, {40, -40}}, lineColor = {0, 0, 255}, fillColor = {255, 255, 255},
-              fillPattern =                                                                                                                                                                                                 FillPattern.Solid), Text(extent = {{-96, 100}, {104, 40}}, lineColor = {0, 0, 255}, textString = "RO port")}));
+              fillPattern =                                                                                                                                                                                                 FillPattern.Solid), Text(extent = {{-96, 100}, {104, 40}}, lineColor=
+                {0,0,255},
+            textString="%name")}));
   end Port_a;
 
   connector Port_b "fluid pin for RO"
@@ -635,7 +649,9 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
       Icon(coordinateSystem(initialScale = 0.1), graphics={  Rectangle(lineColor = {0, 0, 255}, fillColor = {255, 255, 255},
               fillPattern =                                                                                                                FillPattern.Solid, extent = {{-100, 100}, {100, -100}})}),
       Diagram(coordinateSystem(preserveAspectRatio = true, extent = {{-100, -100}, {100, 100}}), graphics={  Rectangle(extent = {{-40, 40}, {40, -40}}, lineColor = {0, 0, 255}, fillColor = {255, 255, 255},
-              fillPattern =                                                                                                                                                                                                 FillPattern.Solid), Text(extent = {{-96, 100}, {104, 40}}, lineColor = {0, 0, 255}, textString = "RO port")}));
+              fillPattern =                                                                                                                                                                                                 FillPattern.Solid), Text(extent = {{-96, 100}, {104, 40}}, lineColor=
+                {0,0,255},
+            textString="%name")}));
   end Port_b;
 
   partial model PartialTwoPort
@@ -649,6 +665,9 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
     parameter Boolean port_a_exposesState = false "= true if port_a exposes the state of a fluid volume";
     parameter Boolean port_b_exposesState = false "= true if port_b.p exposes the state of a fluid volume";
     parameter Boolean showDesignFlowDirection = true "= false to hide the arrow in the model icon";
+  equation
+    m_flow = port_a.m_flow;
+    dp = port_a.p - port_b.p;
     annotation (
       Documentation(info = "<html>
   <p>
@@ -667,9 +686,6 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
               fillPattern =                                                                                                                                                                                                        FillPattern.Solid, visible = allowFlowReversal), Line(points = {{55, -85}, {-60, -85}}, color = {0, 128, 255}, visible = showDesignFlowDirection), Text(extent = {{-149, -114}, {151, -154}}, lineColor = {0, 0, 255}, textString = "%name"), Ellipse(extent = {{-110, 26}, {-90, -24}}, lineColor = {0, 0, 0}, fillColor = {0, 0, 0},
               fillPattern =                                                                                                                                                                                                        FillPattern.Solid, visible = port_a_exposesState), Ellipse(extent = {{90, 25}, {110, -25}}, lineColor = {0, 0, 0}, fillColor = {0, 0, 0},
               fillPattern =                                                                                                                                                                                                        FillPattern.Solid, visible = port_b_exposesState)}));
-  equation
-    m_flow = port_a.m_flow;
-    dp = port_a.p - port_b.p;
   end PartialTwoPort;
 
   model TestModel
@@ -704,8 +720,8 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
     port_a.m_flow + port_b.m_flow = 0;
 
     // no change in concentration
-    port_a.c = if m_flow > 0 then port_a_c_inflow else inStream(port_b.c)-delta_c;
-    port_b.c = if m_flow > 0 then inStream(port_a.c)-delta_c else port_b_c_inflow;
+    port_a.c = if m_flow > 0 then port_a_c_inflow else port_b_c_inflow-delta_c;
+    port_b.c = if m_flow > 0 then port_a_c_inflow-delta_c else port_b_c_inflow;
   //  port_a.c*m_flow+port_b.c*m_flow = 0;
 
     // flow-pressure relationship
@@ -747,6 +763,178 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
   end Source_m_flow;
 
 
+  partial model PartialFourPort
+    Port_a port_feed_a annotation (Placement(
+        visible=true,
+        transformation(
+          origin={-100,0},
+          extent={{-10,-10},{10,10}},
+          rotation=0),
+        iconTransformation(
+          origin={-100,0},
+          extent={{-10,-10},{10,10}},
+          rotation=0)));
+    Port_b port_feed_b annotation (Placement(
+        visible=true,
+        transformation(
+          origin={0,-100},
+          extent={{-10,-10},{10,10}},
+          rotation=0),
+        iconTransformation(
+          origin={0,-100},
+          extent={{-10,-10},{10,10}},
+          rotation=0)));
+    Modelica.SIunits.MassFlowRate m_flow_reject "reject flow rate";
+    Modelica.SIunits.MassFlowRate m_flow_permeate "permeate flow rate";
+    Modelica.SIunits.MassFlowRate m_flow_membrane "flow rate across membrane";
+    Modelica.SIunits.Pressure dp_feed "pressure difference across feed channel";
+    Modelica.SIunits.Pressure dp_permeate "pressure difference across permeate channel";
+
+
+  protected
+    parameter Boolean showDesignFlowDirection = true "= false to hide the arrow in the model icon";
+  public
+    Port_a port_permeate_a annotation (Placement(
+        visible=true,
+        transformation(
+          origin={0,100},
+          extent={{-10,-10},{10,10}},
+          rotation=0),
+        iconTransformation(
+          origin={0,100},
+          extent={{-10,-10},{10,10}},
+          rotation=0)));
+    Port_b port_permeate_b annotation (Placement(
+        visible=true,
+        transformation(
+          origin={100,0},
+          extent={{-10,-10},{10,10}},
+          rotation=0),
+        iconTransformation(
+          origin={100,0},
+          extent={{-10,-10},{10,10}},
+          rotation=0)));
+  equation
+    m_flow_reject = -port_feed_b.m_flow;
+    m_flow_permeate = -port_permeate_b.m_flow;
+    //mass balance on feed side
+    m_flow_membrane =  port_feed_a.m_flow     + port_feed_b.m_flow;
+    //mass balance on permeate side
+    -m_flow_membrane = port_permeate_a.m_flow + port_permeate_b.m_flow;
+
+    dp_feed = port_feed_a.p - port_feed_b.p;
+    dp_permeate = port_permeate_a.p - port_permeate_b.p;
+
+
+    annotation (
+      Documentation(info = "<html>
+  <p>
+  This partial model defines an interface for components with four ports.
+  The treatment of the design flow direction and of flow reversal are predefined based on the parameter <code><b>allowFlowReversal</b></code>.
+  The component may transport fluid and may have internal storage for a given fluid <code><b>Medium</b></code>.
+  </p>
+  <p>
+  An extending model providing direct access to internal storage of mass or energy through port_a or port_b
+  should redefine the protected parameters <code><b>port_a_exposesState</b></code> and <code><b>port_b_exposesState</b></code> appropriately.
+  This will be visualized at the port icons, in order to improve the understanding of fluid model diagrams.
+  </p>
+  </html>"),
+      Icon(coordinateSystem(preserveAspectRatio = true, extent = {{-100, -100}, {100, 100}}),
+      graphics={  Polygon(points={{-32,-54},{-18,-84},{-50,-76},{-32,-54}},       lineColor = {0, 128, 255}, fillColor = {0, 128, 255},
+                    fillPattern = FillPattern.Solid, visible = showDesignFlowDirection),
+                  Line(
+            points={{-32,-74},{-86,-18}},
+            color={0,128,255},
+            visible=showDesignFlowDirection),
+                  Text(extent = {{-149, -114}, {151, -154}}, lineColor = {0, 0, 255}, textString = "%name"),
+                  Line(
+            points={{74,34},{20,90}},
+            color={0,128,255},
+            visible=showDesignFlowDirection),
+                  Polygon(points={{74,54},{88,24},{56,32},{74,54}},               lineColor = {0, 128, 255}, fillColor = {0, 128, 255},
+                    fillPattern = FillPattern.Solid, visible = showDesignFlowDirection)}));
+  end PartialFourPort;
+
+  model RO_module
+    "Series of segments of one RO module modeled as one element"
+    Modelica.SIunits.EnergyDensity SpecificEnergy;
+    RO_middle_stream rO_middle1(dx = 0.88 / 5) annotation (
+      Placement(visible = true, transformation(origin = {-40, 10}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+    RO_middle_stream rO_middle2(dx = 0.88 / 5) annotation (
+      Placement(visible = true, transformation(origin = {0, 10}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+    RO_middle_stream rO_middle3(dx = 0.88 / 5) annotation (
+      Placement(visible = true, transformation(origin = {38, 10}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+    RO_middle_stream rO_first(dx = 0.88 / 5) annotation (
+      Placement(visible = true, transformation(origin = {-74, 10}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+    RO_middle_stream rO_last(dx = 0.88 / 5) annotation (
+      Placement(visible = true, transformation(origin = {74, 10}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+
+    Port_b permeate annotation (Placement(transformation(extent={{90,-8},{110,12}}),
+          iconTransformation(extent={{90,-8},{110,12}})));
+    Port_a feed annotation (Placement(transformation(extent={{-112,-10},{-92,10}}),
+          iconTransformation(extent={{-112,-10},{-92,10}})));
+    Port_b reject annotation (Placement(transformation(extent={{-12,-110},{8,-90}}),
+          iconTransformation(extent={{-12,-110},{8,-90}})));
+    Source_m_flow source_m_flow(m_flow=0, c=0)
+      annotation (Placement(transformation(extent={{-68,56},{-48,76}})));
+  equation
+    SpecificEnergy = rO_first.port_feed_a.m_flow/rO_last.port_permeate_b.m_flow * rO_first.port_feed_b.p;
+    connect(rO_first.port_feed_b, rO_middle1.port_feed_a) annotation (Line(points=
+           {{-74,0},{-74,-10},{-56,-10},{-56,10},{-50,10}}, color={0,0,255}));
+    connect(rO_first.port_permeate_b, rO_middle1.port_permeate_a) annotation (
+        Line(points={{-64,10},{-60,10},{-60,24},{-40,24},{-40,20}}, color={0,0,255}));
+    connect(rO_middle1.port_feed_b, rO_middle2.port_feed_a) annotation (Line(
+          points={{-40,0},{-40,-10},{-20,-10},{-20,10},{-10,10}}, color={0,0,255}));
+    connect(rO_middle2.port_feed_b, rO_middle3.port_feed_a) annotation (Line(
+          points={{0,0},{0,-8},{20,-8},{20,10},{28,10}}, color={0,0,255}));
+    connect(rO_middle3.port_feed_b, rO_last.port_feed_a) annotation (Line(points={
+            {38,0},{38,-8},{56,-8},{56,10},{64,10}}, color={0,0,255}));
+    connect(rO_middle1.port_permeate_b, rO_middle2.port_permeate_a) annotation (
+        Line(points={{-30,10},{-24,10},{-24,26},{0,26},{0,20}}, color={0,0,255}));
+    connect(rO_middle2.port_permeate_b, rO_middle3.port_permeate_a) annotation (
+        Line(points={{10,10},{16,10},{16,24},{38,24},{38,20}}, color={0,0,255}));
+    connect(rO_middle3.port_permeate_b, rO_last.port_permeate_a) annotation (Line(
+          points={{48,10},{52,10},{52,28},{74,28},{74,20}}, color={0,0,255}));
+    connect(rO_first.port_feed_a, feed)
+      annotation (Line(points={{-84,10},{-102,10},{-102,0}}, color={0,0,255}));
+    connect(rO_last.port_permeate_b, permeate) annotation (Line(points={{84,10},{88,
+            10},{88,2},{100,2}}, color={0,0,255}));
+    connect(rO_last.port_feed_b, reject) annotation (Line(points={{74,0},{74,-68},
+            {-2,-68},{-2,-100}}, color={0,0,255}));
+    connect(source_m_flow.port_a, rO_first.port_permeate_a)
+      annotation (Line(points={{-68,66},{-74,66},{-74,20}}, color={0,0,255}));
+    annotation (
+      Icon(graphics={  Polygon(lineColor = {0, 0, 255}, fillColor = {7, 0, 255},
+              fillPattern =                                                                    FillPattern.Solid, points = {{-100, 100}, {100, 100}, {100, -100}, {100, -100}, {-100, 100}}), Line(points = {{-100, -100}, {-100, 100}, {100, 100}, {100, -100}, {-100, -100}})}));
+  end RO_module;
+
+  model TestRO_module
+    RO_hydraulics.Source_p_c source_p_c1(p=5000000, c=600)
+                                         annotation (
+      Placement(visible = true, transformation(origin = {-100, 0}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+    Source_m_flow source_m_flow1(m_flow=-1/60)
+                                 annotation (
+      Placement(visible = true, transformation(origin={16,-76},   extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+    RO_hydraulics.Source_p_c source_p_c2(c=30)
+                                         annotation (
+      Placement(visible = true, transformation(origin={100,0},     extent = {{-10, -10}, {10, 10}}, rotation=180)));
+    RO_middle_stream rO_middle_stream
+      annotation (Placement(transformation(extent={{-10,-10},{10,10}})));
+    Source_m_flow source_m_flow2(m_flow=0)
+                                 annotation (
+      Placement(visible = true, transformation(origin={16,52},    extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+  equation
+
+    connect(source_p_c1.port_b, rO_middle_stream.port_feed_a)
+      annotation (Line(points={{-90,0},{-10,0}}, color={0,0,255}));
+    connect(rO_middle_stream.port_feed_b, source_m_flow1.port_a)
+      annotation (Line(points={{0,-10},{0,-76},{6,-76}}, color={0,0,255}));
+    connect(source_m_flow2.port_a, rO_middle_stream.port_permeate_a)
+      annotation (Line(points={{6,52},{0,52},{0,10}}, color={0,0,255}));
+    connect(source_p_c2.port_b, rO_middle_stream.port_permeate_b) annotation (
+        Line(points={{90,1.33227e-015},{78,1.33227e-015},{78,0},{10,0}}, color=
+            {0,0,255}));
+  end TestRO_module;
   annotation (
     uses(OpenHydraulics(version = "1.0"), Modelica(version = "3.2.2"), RO_middle(version = "1")));
 end RO_hydraulics;
