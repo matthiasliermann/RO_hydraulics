@@ -63,6 +63,8 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
     Modelica.SIunits.MolarDensity cp "Molar concentration of salt in permeate outlet";
     Modelica.SIunits.MolarDensity cf "Molar concentration of salt feed outlet";
     Modelica.SIunits.MolarDensity cm "Molar concentration of salt on membrane wall of feed side due to concentration polarization";
+    Modelica.SIunits.Density cp_(displayUnit = "g/L") "Salt density in permeate";
+    Modelica.SIunits.Density cf_(displayUnit = "g/L") "Salt density in reject";
   equation
     port_feed_a.p = p_fin;
     port_feed_a.m_flow = Q_fin * rho_fin;
@@ -106,6 +108,8 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
     // flow across membrane
     m_flow_membrane = n_leaves * 2 * A_dx * (J_v1 * M_w + J_s * M_s);
     cm = cp + (c_fin - cp) * exp(J_v / k);
+    cp_ = cp*M_s;
+    cf_ = cf*M_w;
     error_cp = cm - (cp + (c_fin - cp) * exp(J_v / k));
     //mol/m3
     //salt balance on permeate side
@@ -123,7 +127,13 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
     //Power=Q_fin*p_fin/Q_pout /(36); //kWh/m3 of desalted water
     annotation (
       conversion(noneFromVersion = ""),
-      Diagram(graphics = {Polygon(points = {{-100, 100}, {100, 100}, {100, -100}, {-100, 100}}, lineColor = {0, 0, 255}, lineThickness = 0.5, fillColor = {0, 0, 255}, fillPattern = FillPattern.Solid), Text(extent = {{-38, 84}, {108, 0}}, lineColor = {255, 255, 255}, lineThickness = 0.5, fillColor = {0, 0, 255}, fillPattern = FillPattern.Solid, fontSize = 72, textString = "Permeate"), Text(extent = {{-102, 4}, {4, -66}}, lineColor = {0, 0, 255}, lineThickness = 0.5, fillColor = {0, 0, 255}, fillPattern = FillPattern.Solid, textString = "Feed", fontSize = 72), Line(points = {{-100, 100}, {-100, -100}, {100, -100}, {100, 100}, {-100, 100}}, color = {0, 0, 0}, thickness = 0.5)}),
+      Diagram(graphics={  Polygon(points = {{-100, 100}, {100, 100}, {100, -100}, {-100, 100}}, lineColor = {0, 0, 255},
+              lineThickness =                                                                                                            0.5, fillColor = {0, 0, 255},
+              fillPattern =                                                                                                                                                          FillPattern.Solid), Text(extent = {{-38, 84}, {108, 0}}, lineColor = {255, 255, 255},
+              lineThickness =                                                                                                                                                                                                        0.5, fillColor = {0, 0, 255},
+              fillPattern =                                                                                                                                                                                                        FillPattern.Solid, fontSize = 72, textString = "Permeate"), Text(extent = {{-102, 4}, {4, -66}}, lineColor = {0, 0, 255},
+              lineThickness =                                                                                                                                                                                                        0.5, fillColor = {0, 0, 255},
+              fillPattern =                                                                                                                                                                                                        FillPattern.Solid, textString = "Feed", fontSize = 72), Line(points = {{-100, 100}, {-100, -100}, {100, -100}, {100, 100}, {-100, 100}}, color = {0, 0, 0}, thickness = 0.5)}),
       Icon(graphics={  Polygon(points = {{-100, 100}, {100, 100}, {100, -100}, {-100, 100}}, lineColor = {0, 0, 255},
               lineThickness =                                                                                                         0.5, fillColor = {0, 0, 255},
               fillPattern =                                                                                                                                                       FillPattern.Solid), Text(extent = {{-102, 4}, {4, -66}}, lineColor = {0, 0, 255},
@@ -236,24 +246,29 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
       Placement(transformation(extent = {{30, -10}, {50, 10}})));
     RO_middle_stream rO_middle_stream4 annotation (
       Placement(transformation(extent = {{60, -10}, {80, 10}})));
-  Modelica.Blocks.Sources.Cosine signal_pressure(amplitude = 35e5, freqHz = 2, offset = 36e5)  annotation (
-      Placement(visible = true, transformation(origin = {-130, 0}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
-  Modelica.Blocks.Sources.Cosine signal_mflow(amplitude = 0.0, freqHz = 2,
-      offset=-0.1)                                                                         annotation (
-      Placement(visible = true, transformation(origin = {-40, -72}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
-  Sources.Source_p_c_signal source_feed_p annotation (
-      Placement(visible = true, transformation(origin = {-96, 0}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
-  RO_hydraulics.Sources.Source_m_flow_signal source_reject_m_flow annotation (
-      Placement(visible = true, transformation(origin = {-2, -72}, extent = {{10, -10}, {-10, 10}}, rotation = 0)));
+  Modelica.Blocks.Sources.Cosine signal_pressure(                  freqHz = 2,
+      amplitude=0,
+      offset=35e5)                                                                             annotation (
+      Placement(visible = true, transformation(origin={46,-78},    extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+  Modelica.Blocks.Sources.Cosine signal_mflow(                 freqHz = 2,
+      amplitude=0.05,
+      offset=0.08)                                                                         annotation (
+      Placement(visible = true, transformation(origin={-134,0},     extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+  Sources.Source_p_c_signal source_reject_p annotation (Placement(visible=true,
+          transformation(
+          origin={80,-78},
+          extent={{-10,-10},{10,10}},
+          rotation=0)));
+  RO_hydraulics.Sources.Source_m_flow_signal source_feed_m_flow annotation (
+        Placement(visible=true, transformation(
+          origin={-96,0},
+          extent={{10,-10},{-10,10}},
+          rotation=0)));
   equation
-    connect(source_reject_m_flow.u, signal_mflow.y) annotation (
-      Line(points={{-11.6,-72},{-30,-72},{-30,-72},{-29,-72}},        color = {0, 0, 127}));
-    connect(source_reject_m_flow.port_a, rO_middle_stream4.port_feed_b) annotation (
-      Line(points = {{8, -72}, {70, -72}, {70, -10}, {70, -10}}, color = {0, 0, 255}));
-    connect(source_feed_p.port_b, rO_middle_stream.port_feed_a) annotation (
-      Line(points = {{-86, 0}, {-70, 0}, {-70, 0}, {-70, 0}}, color = {0, 0, 255}));
-    connect(signal_pressure.y, source_feed_p.u) annotation (
-      Line(points={{-119,0},{-108,0},{-108,0},{-105.8,0}},        color = {0, 0, 127}));
+    connect(source_feed_m_flow.u, signal_mflow.y)
+      annotation (Line(points={{-105.6,0},{-123,0}}, color={0,0,127}));
+    connect(signal_pressure.y, source_reject_p.u)
+      annotation (Line(points={{57,-78},{70.2,-78}}, color={0,0,127}));
     connect(rO_middle_stream.port_feed_b, rO_middle_stream1.port_feed_a) annotation (
       Line(points = {{-60, -10}, {-62, -10}, {-62, -24}, {-36, -24}, {-36, 0}}, color = {0, 0, 255}));
     connect(rO_middle_stream.port_permeate_b, rO_middle_stream1.port_permeate_a) annotation (
@@ -274,6 +289,11 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
       Line(points = {{50, 0}, {52, 0}, {52, 20}, {70, 20}, {70, 10}}, color = {0, 0, 255}));
     connect(rO_middle_stream4.port_permeate_b, source_permeate_p.port_b) annotation (
       Line(points = {{80, 0}, {90, 0}}, color = {0, 0, 255}));
+    connect(source_feed_m_flow.port_a, rO_middle_stream.port_feed_a)
+      annotation (Line(points={{-86,0},{-70,0}}, color={0,0,255}));
+    connect(source_reject_p.port_b, rO_middle_stream4.port_feed_b) annotation (
+        Line(points={{90,-78},{96,-78},{96,-38},{70,-38},{70,-10}}, color={0,0,
+            255}));
   end TestRO_module;
 
   package Interfaces
