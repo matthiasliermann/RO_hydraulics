@@ -34,18 +34,18 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
     parameter Modelica.SIunits.Pressure p_start = 50e5 "start value for pressure at feed inlet";
   public
     Real B_s(unit = "m/s") = 1.11e-7 "membrane coefficient to describe salt diffusion as a function of concentration difference, membrane specific";
-    Modelica.SIunits.MolarDensity c_fin(start = c_start) "feed inlet molar salt concentration";
-    Modelica.SIunits.Pressure p_fin(start = p_start) "feed inlet pressure";
+    Modelica.SIunits.MolarDensity c_fin(start = c_start, min = 0) "feed inlet molar salt concentration";
+    Modelica.SIunits.Pressure p_fin(start = p_start, min=-1E5) "feed inlet pressure";
     Modelica.SIunits.VolumeFlowRate Q_fin "feed inlet volume flow rate";
     Modelica.SIunits.Density rho_fin "feed inlet density";
-    Modelica.SIunits.Pressure p_fout "feed outlet pressure";
+    Modelica.SIunits.Pressure p_fout( min=-1E5) "feed outlet pressure";
     Modelica.SIunits.VolumeFlowRate Q_fout "feed outlet volume flow rate";
     Modelica.SIunits.Density rho_fout "feed outlet density";
     Modelica.SIunits.MolarDensity c_pin "permeate inlet molar salt concentration";
     Modelica.SIunits.Pressure p_pin "permeate inlet pressure";
     Modelica.SIunits.VolumeFlowRate Q_pin "permeate inlet volume flow rate";
     Modelica.SIunits.Density rho_pin "permeate inlet density";
-    Modelica.SIunits.Pressure p_pout "permeate outlet pressure";
+    Modelica.SIunits.Pressure p_pout(min=-1E5) "permeate outlet pressure";
     Modelica.SIunits.VolumeFlowRate Q_pout "permeate outlet volume flow rate";
     Modelica.SIunits.Density rho_pout "permeate outlet density";
     VolumetricFlux J_v "Molar solvent (water) flux through membrane in [m3/(m2.s)]";
@@ -55,16 +55,16 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
     Real Sc "Dimensionless Schmidt number";
     Real Pe "Dimensionless Peclet number";
     Real error_Jv "Relative error of solvent flux to check if applied assumptions are fine";
-    Modelica.SIunits.MolarDensity error_cp "error of molar permeate salt concentration";
+    Modelica.SIunits.MolarDensity error_cp(min = 0) "error of molar permeate salt concentration";
     VolumetricFlux osmosis "osmotic flux. Given the concentration difference at feed wall and permeate, this is how much is going through the membrane in osmotic direction";
     VolumetricFlux rosmosis "reverse osmotic flux. Given the pressure on feed and permeate sides, this is how much is going throught the membrane in reverse osmotic direction";
     Modelica.SIunits.Pressure dp_membrane "pressure difference across membrane";
     Modelica.SIunits.Pressure dp_osmotic "osmotic pressure across membrane";
-    Modelica.SIunits.MolarDensity cp "Molar concentration of salt in permeate outlet";
-    Modelica.SIunits.MolarDensity cf "Molar concentration of salt feed outlet";
-    Modelica.SIunits.MolarDensity cm "Molar concentration of salt on membrane wall of feed side due to concentration polarization";
-    Modelica.SIunits.Density cp_(displayUnit = "g/L") "Salt density in permeate";
-    Modelica.SIunits.Density cf_(displayUnit = "g/L") "Salt density in reject";
+    Modelica.SIunits.MolarDensity cp(min=0) "Molar concentration of salt in permeate outlet";
+    Modelica.SIunits.MolarDensity cf(min=0)  "Molar concentration of salt feed outlet";
+    Modelica.SIunits.MolarDensity cm(min=0)  "Molar concentration of salt on membrane wall of feed side due to concentration polarization";
+    Modelica.SIunits.Density cp_(displayUnit = "g/l") "Salt density in permeate";
+    Modelica.SIunits.Density cf_(displayUnit = "g/l") "Salt density in reject";
   equation
     port_feed_a.p = p_fin;
     port_feed_a.m_flow = Q_fin * rho_fin;
@@ -182,6 +182,43 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
 
   model RO_module "Series of segments of one RO module modeled as one element"
     Modelica.SIunits.EnergyDensity SpecificEnergy;
+    parameter Integer n(min = 2)=2 "number of elements of RO membrane";
+  protected
+    RO_middle_stream rO_element[n](each dx=0.88/n) annotation (Placement(visible=true,
+          transformation(
+          origin={-74,10},
+          extent={{-10,-10},{10,10}},
+          rotation=0)));
+  public
+    Interfaces.Port_b permeate annotation (
+      Placement(transformation(extent = {{90, -8}, {110, 12}}), iconTransformation(extent = {{90, -8}, {110, 12}})));
+    Interfaces.Port_a feed annotation (
+      Placement(transformation(extent = {{-112, -10}, {-92, 10}}), iconTransformation(extent = {{-112, -10}, {-92, 10}})));
+    Interfaces.Port_b reject annotation (
+      Placement(transformation(extent = {{-12, -110}, {8, -90}}), iconTransformation(extent = {{-12, -110}, {8, -90}})));
+    Sources.Source_m_flow source_m_flow(m_flow = 0, c = 0) annotation (
+      Placement(transformation(extent = {{-68, 56}, {-48, 76}})));
+  equation
+    SpecificEnergy =rO_element[1].port_feed_a.m_flow/rO_element[n].port_permeate_b.m_flow*
+      rO_element[1].port_feed_b.p;
+    connect(rO_element[1].port_feed_a, feed)
+      annotation (Line(points={{-84,10},{-102,10},{-102,0}}, color={0,0,255}));
+    connect(source_m_flow.port_a, rO_element[1].port_permeate_a)
+      annotation (Line(points={{-68,66},{-74,66},{-74,20}}, color={0,0,255}));
+    for i in 1:n-1 loop
+      connect(rO_element[i].port_feed_b,rO_element[i+1].port_feed_a);
+      connect(rO_element[i].port_permeate_b,rO_element[i+1].port_permeate_a);
+    end for;
+    connect(rO_element[n].port_feed_b,reject);
+    connect(rO_element[n].port_permeate_b,permeate);
+    annotation (
+      Icon(graphics={  Polygon(lineColor = {0, 0, 255}, fillColor = {7, 0, 255},
+              fillPattern =                                                                    FillPattern.Solid, points = {{-100, 100}, {100, 100}, {100, -100}, {100, -100}, {-100, 100}}), Line(points = {{-100, -100}, {-100, 100}, {100, 100}, {100, -100}, {-100, -100}})}));
+  end RO_module;
+
+  model RO_module_manual
+    "Series of segments of one RO module modeled as one element"
+    Modelica.SIunits.EnergyDensity SpecificEnergy;
     RO_middle_stream rO_middle1(dx = 0.88 / 5) annotation (
       Placement(visible = true, transformation(origin = {-40, 10}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
     RO_middle_stream rO_middle2(dx = 0.88 / 5) annotation (
@@ -229,34 +266,22 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
     annotation (
       Icon(graphics={  Polygon(lineColor = {0, 0, 255}, fillColor = {7, 0, 255},
               fillPattern =                                                                    FillPattern.Solid, points = {{-100, 100}, {100, 100}, {100, -100}, {100, -100}, {-100, 100}}), Line(points = {{-100, -100}, {-100, 100}, {100, 100}, {100, -100}, {-100, -100}})}));
-  end RO_module;
+  end RO_module_manual;
 
   model TestRO_module
     RO_hydraulics.Sources.Source_p_c source_permeate_p(c = 30) annotation (
       Placement(visible = true, transformation(origin = {100, 0}, extent = {{-10, -10}, {10, 10}}, rotation = 180)));
-    Sources.Source_m_flow source_permeate_flow(m_flow = 0 / 60) annotation (
-      Placement(visible = true, transformation(origin = {-24, 68}, extent = {{-10, -10}, {10, 10}}, rotation = 180)));
-    RO_middle_stream rO_middle_stream annotation (
-      Placement(transformation(extent = {{-70, -10}, {-50, 10}})));
-    RO_middle_stream rO_middle_stream1 annotation (
-      Placement(transformation(extent = {{-36, -10}, {-16, 10}})));
-    RO_middle_stream rO_middle_stream2 annotation (
-      Placement(transformation(extent = {{0, -10}, {20, 10}})));
-    RO_middle_stream rO_middle_stream3 annotation (
-      Placement(transformation(extent = {{30, -10}, {50, 10}})));
-    RO_middle_stream rO_middle_stream4 annotation (
-      Placement(transformation(extent = {{60, -10}, {80, 10}})));
   Modelica.Blocks.Sources.Cosine signal_pressure(                  freqHz = 2,
       amplitude=0,
       offset=35e5)                                                                             annotation (
-      Placement(visible = true, transformation(origin={46,-78},    extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+      Placement(visible = true, transformation(origin={-76,-76},   extent = {{-10, -10}, {10, 10}}, rotation = 0)));
   Modelica.Blocks.Sources.Cosine signal_mflow(                 freqHz = 2,
       amplitude=0.05,
       offset=0.08)                                                                         annotation (
       Placement(visible = true, transformation(origin={-134,0},     extent = {{-10, -10}, {10, 10}}, rotation = 0)));
   Sources.Source_p_c_signal source_reject_p annotation (Placement(visible=true,
           transformation(
-          origin={80,-78},
+          origin={-34,-76},
           extent={{-10,-10},{10,10}},
           rotation=0)));
   RO_hydraulics.Sources.Source_m_flow_signal source_feed_m_flow annotation (
@@ -264,36 +289,20 @@ package RO_hydraulics "package for modeling reverse osmosis membrane process"
           origin={-96,0},
           extent={{10,-10},{-10,10}},
           rotation=0)));
+    RO_module rO_module(n=12)
+      annotation (Placement(transformation(extent={{-8,-10},{12,10}})));
   equation
     connect(source_feed_m_flow.u, signal_mflow.y)
       annotation (Line(points={{-105.6,0},{-123,0}}, color={0,0,127}));
     connect(signal_pressure.y, source_reject_p.u)
-      annotation (Line(points={{57,-78},{70.2,-78}}, color={0,0,127}));
-    connect(rO_middle_stream.port_feed_b, rO_middle_stream1.port_feed_a) annotation (
-      Line(points = {{-60, -10}, {-62, -10}, {-62, -24}, {-36, -24}, {-36, 0}}, color = {0, 0, 255}));
-    connect(rO_middle_stream.port_permeate_b, rO_middle_stream1.port_permeate_a) annotation (
-      Line(points = {{-50, 0}, {-42, 0}, {-42, 16}, {-26, 16}, {-26, 10}}, color = {0, 0, 255}));
-    connect(rO_middle_stream.port_permeate_a, source_permeate_flow.port_a) annotation (
-      Line(points = {{-60, 10}, {-60, 36}, {-14, 36}, {-14, 68}}, color = {0, 0, 255}));
-    connect(rO_middle_stream1.port_feed_b, rO_middle_stream2.port_feed_a) annotation (
-      Line(points = {{-26, -10}, {-24, -10}, {-24, -20}, {-2, -20}, {-2, -6}, {0, -6}, {0, 0}}, color = {0, 0, 255}));
-    connect(rO_middle_stream1.port_permeate_b, rO_middle_stream2.port_permeate_a) annotation (
-      Line(points = {{-16, 0}, {-6, 0}, {-6, 18}, {10, 18}, {10, 10}}, color = {0, 0, 255}));
-    connect(rO_middle_stream2.port_feed_b, rO_middle_stream3.port_feed_a) annotation (
-      Line(points = {{10, -10}, {10, -22}, {30, -22}, {30, 0}}, color = {0, 0, 255}));
-    connect(rO_middle_stream2.port_permeate_b, rO_middle_stream3.port_permeate_a) annotation (
-      Line(points = {{20, 0}, {24, 0}, {24, 16}, {40, 16}, {40, 10}}, color = {0, 0, 255}));
-    connect(rO_middle_stream3.port_feed_b, rO_middle_stream4.port_feed_a) annotation (
-      Line(points = {{40, -10}, {40, -22}, {56, -22}, {56, 0}, {60, 0}}, color = {0, 0, 255}));
-    connect(rO_middle_stream3.port_permeate_b, rO_middle_stream4.port_permeate_a) annotation (
-      Line(points = {{50, 0}, {52, 0}, {52, 20}, {70, 20}, {70, 10}}, color = {0, 0, 255}));
-    connect(rO_middle_stream4.port_permeate_b, source_permeate_p.port_b) annotation (
-      Line(points = {{80, 0}, {90, 0}}, color = {0, 0, 255}));
-    connect(source_feed_m_flow.port_a, rO_middle_stream.port_feed_a)
-      annotation (Line(points={{-86,0},{-70,0}}, color={0,0,255}));
-    connect(source_reject_p.port_b, rO_middle_stream4.port_feed_b) annotation (
-        Line(points={{90,-78},{96,-78},{96,-38},{70,-38},{70,-10}}, color={0,0,
-            255}));
+      annotation (Line(points={{-65,-76},{-43.8,-76}},
+                                                     color={0,0,127}));
+    connect(rO_module.feed, source_feed_m_flow.port_a)
+      annotation (Line(points={{-8.2,0},{-86,0}}, color={0,0,255}));
+    connect(rO_module.reject, source_reject_p.port_b) annotation (Line(points={
+            {1.8,-10},{2,-10},{2,-76},{-24,-76}}, color={0,0,255}));
+    connect(rO_module.permeate, source_permeate_p.port_b) annotation (Line(
+          points={{12,0.2},{52,0.2},{52,0},{90,0}}, color={0,0,255}));
   end TestRO_module;
 
   package Interfaces
